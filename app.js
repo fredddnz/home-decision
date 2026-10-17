@@ -2,6 +2,7 @@ import { API_ORIGIN } from './deployment-config.mjs';
 import { createAPIClient } from './api-client.mjs';
 import { ahpFailureExplanation } from './ahp-diagnostics.mjs';
 import {riskExplanation,riskProbabilityLabel} from './risk-diagnostics.mjs';
+import {monteCarloExplanation} from './monte-carlo-diagnostics.mjs';
 const apiFetch = createAPIClient({ apiOrigin: API_ORIGIN });
 const dataNotice = API_ORIGIN
   ? 'Only the address and geometry go to public property data providers. Your project, conversation and extracted document text are stored in Cloudflare D1 for up to 30 days. Relevant excerpts are processed by Cloudflare Workers AI for the six analysis roles, subject to the free daily allowance. Raw PDFs are read in your browser; scanned PDF OCR is unavailable in this online preview. Projects are private to this browser session; opening the website on another device starts a separate session.'
@@ -389,6 +390,13 @@ function bayesianDetails(content,model){
   }
   content.append(node('p','','No validated Auckland base-rate or inspection-accuracy dataset is attached to this model. Title, insurance and statutory hazards remain separate review constraints. A lower conditional scenario cannot clear a material-risk hold.'));
 }
+function monteCarloDetails(content,model){
+  const d=monteCarloExplanation(model);content.append(node('h3','',d.title),node('p','',d.intro));
+  for(const missing of d.missing)content.append(node('p','source-status',missing));
+  for(const assumption of d.assumptions)content.append(node('p','',assumption));
+  for(const c of d.cases)content.append(node('h4','',c.title),node('p','',c.distribution),node('p','',c.conditional),node('p','',c.holds),node('p','source-status',c.precision));
+  if(d.anchors.length){content.append(node('h4','','Economic sensitivity checks'),node('p','',d.anchorIntro));for(const a of d.anchors)content.append(node('p','',a.label+': '+a.result),node('p','source-status',a.inputs));}
+}
 function calculationDetails(content, area) {
   const calculation = area.calculation;
   if (!calculation) return;
@@ -457,6 +465,7 @@ function areaDetails(id) {
     else if(!ahp?.applied)content.append(node('p','source-status','No declared unary priority adjustment for this area; the fallback base importance applies.'));
   }
   calculationDetails(content,area);
+  if(['finance','market'].includes(id))monteCarloDetails(content,project.decision.model?.monteCarlo);
   if(id==='property'&&area.calculation?.reports?.length){
     content.append(node('h3','','Report findings'));
     content.append(node('p','','Collected extracts remain user supplied and unauthenticated. Matching a title number establishes an identity link only. Freshness limits are product checks, not legal expiry; no report establishes complete building, legal or insurance clearance.'));
@@ -517,6 +526,7 @@ function supportDetails() {
   if (project.calculationRulesChanged) content.append(node('p','','This saved project is recalculated with the current evidence and weighting rules. Internal weights use unrounded values and source-linked priority statements. Your saved notes, reports and earlier percentage history are retained.'));
   if (project.decision.model) {
     bayesianDetails(content,project.decision.model.risk);
+    monteCarloDetails(content,project.decision.model.monteCarlo);
     content.append(node('h3', '', 'Calculation inputs'));
     for (const area of project.decision.areas) if (area.calculation.missing.length) content.append(node('p', '', `${area.label} — still needed: ${area.calculation.missing.join('; ')}.`));
     if (!project.research?.identity || !project.decision.areas.find(a=>a.id==='location').covered.includes('address_match')) content.append(node('p', '', 'A current exact address check is still needed.'));
@@ -534,7 +544,7 @@ function supportDetails() {
   content.append(node('h3', '', 'Recent changes'));
   for (const change of project.history.slice(-6).reverse()) {
     content.append(node('p', '', `${dateLabel(change.at)} — ${change.explanation} Support: ${change.support ?? 'unavailable'}; completeness: ${change.completeness}%.`));
-    for (const area of change.changedAreas ?? []) {content.append(node('p', 'source-status', `${area.label}: share ${area.shareBefore}% → ${area.shareAfter}%; utility ${area.utilityBefore == null ? 'unavailable' : area.utilityBefore.toFixed(1)} → ${area.utilityAfter == null ? 'unavailable' : area.utilityAfter.toFixed(1)}; coverage ${area.coverageBefore}% → ${area.coverageAfter}%.`));for(const risk of area.riskChanges??[])content.append(node('p','source-status',`${risk.label}: conditional scenario ${riskProbabilityLabel(risk.before)} → ${riskProbabilityLabel(risk.after)} under uncalibrated assumptions.`));}
+    for (const area of change.changedAreas ?? []) {content.append(node('p', 'source-status', `${area.label}: share ${area.shareBefore}% → ${area.shareAfter}%; utility ${area.utilityBefore == null ? 'unavailable' : area.utilityBefore.toFixed(1)} → ${area.utilityAfter == null ? 'unavailable' : area.utilityAfter.toFixed(1)}; coverage ${area.coverageBefore}% → ${area.coverageAfter}%.`));for(const risk of area.riskChanges??[])content.append(node('p','source-status',`${risk.label}: conditional scenario ${riskProbabilityLabel(risk.before)} → ${riskProbabilityLabel(risk.after)} under uncalibrated assumptions.`));for(const s of area.scenarioChanges??[]){const values=v=>v?[v.p10,v.median,v.p90].map(x=>x.toFixed(1)).join(' / '):'not run';content.append(node('p','source-status',`${s.label}: all-draw latent utility P10 / median / P90 ${values(s.before)} → ${values(s.after)}. Uncalibrated simulation; supported draws ${s.after.supported}/${s.after.draws}.`));}}
   }
   openDialog('detail-dialog');
 }
