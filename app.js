@@ -3,9 +3,12 @@ import { createAPIClient } from './api-client.mjs';
 import { ahpFailureExplanation } from './ahp-diagnostics.mjs';
 import {riskExplanation,riskProbabilityLabel} from './risk-diagnostics.mjs';
 import {monteCarloExplanation} from './monte-carlo-diagnostics.mjs';
+import {inspectPDFPages} from './pdf-pages.mjs';
+import {createScannedPDFSubmitter} from './pdf-upload.mjs';
 const apiFetch = createAPIClient({ apiOrigin: API_ORIGIN });
+const uploadLocalPDF = createScannedPDFSubmitter({apiOrigin:API_ORIGIN,fetchImpl:apiFetch});
 const dataNotice = API_ORIGIN
-  ? 'Only the address and geometry go to public property data providers. Your project, conversation and extracted document text are stored in Cloudflare D1 for up to 30 days. Relevant excerpts are processed by Cloudflare Workers AI for the six analysis roles, subject to the free daily allowance. Raw PDFs are read in your browser; scanned PDF OCR is unavailable in this online preview. Projects are private to this browser session; opening the website on another device starts a separate session.'
+  ? 'Only the address and geometry go to public property data providers. Your project, conversation and extracted document text are stored in Cloudflare D1 for up to 30 days. Relevant excerpts are processed by Cloudflare Workers AI for the six analysis roles, subject to the free daily allowance. Original PDFs stay in your browser; only readable extracted text is submitted. Confirmed blank pages retain their page numbers. Scanned or unresolved image pages stop locally because online OCR is unavailable; their original PDF is not uploaded. Projects are private to this browser session; opening the website on another device starts a separate session.'
   : 'Only the address and geometry go to public data providers. Source excerpts, your expected price and relevant notes are processed by OpenAI through the locally signed-in Codex CLI for AI analysis. This uses your existing Codex quota; raw files are not uploaded.';
 const $ = id => document.getElementById(id);
 if (API_ORIGIN) {
@@ -229,9 +232,8 @@ async function pollDocument(projectId,initial){
   }catch(error){if(project?.id===projectId)errorAt('chat-error',error.message);}
   finally{documentPolls.delete(key);}
 }
-async function submitScannedPDF(file,projectId){
-  const response=await apiFetch(`/api/projects/${projectId}/documents`,{method:'POST',headers:{'Content-Type':'application/pdf','X-Document-Name':encodeURIComponent(file.name)},body:file});
-  const result=await response.json();if(!response.ok)throw new Error(result.error??'The PDF could not be uploaded.');
+async function submitScannedPDF(file,projectId,plan){
+  const result=await uploadLocalPDF(file,projectId,plan);
   void pollDocument(projectId,result);
 }
 async function submitInformation(input) {
@@ -634,11 +636,10 @@ $('document-file').addEventListener('change', async event => {
       try {
         pdf = await task.promise;
         if (pdf.numPages > 100) throw new Error('Please upload the relevant pages, up to 100 pages at a time.');
-        const pages = [];
-        for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); pages.push(content.items.map(item => `${item.str ?? ''}${item.hasEOL ? '\n' : ' '}`).join('')); }
+        const pages = await inspectPDFPages(pdf,{ops:pdfjs.OPS});
         const {pdfReadingPlan}=await import('./document-text.mjs');
         const plan=pdfReadingPlan(pages);
-        if(plan.method==='ocr_fallback'){await submitScannedPDF(file,project.id);return;}
+        if(plan.method==='ocr_fallback'){await submitScannedPDF(file,project.id,plan);return;}
         text = plan.text;
       } finally { await task.destroy(); }
     } else if (/\.(txt|md)$/i.test(file.name)) text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
