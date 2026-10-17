@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://home-decision-api.home-decision-mvp.workers.dev; worker-src 'self' blob:; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fafaf8">
+  <title>Home Decision</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <button class="wordmark" id="go-home" aria-label="Home Decision — start a project">Home Decision</button>
+    <button class="demo-pill" id="open-about">Demo</button>
+  </header>
+  <main>
+    <section id="entry" class="entry-page">
+      <div class="entry-content">
+        <p class="eyebrow">AUCKLAND HOME BUYERS</p>
+        <h1>Start with the<br>property.</h1>
+        <p class="entry-subtitle">An address and a price. Your decision starts here.</p>
+        <form id="entry-form" novalidate>
+          <div class="field address-field"><label for="property-address">Property address</label><input id="property-address" name="address" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="address-options" aria-describedby="address-status" autocomplete="off" spellcheck="false" maxlength="300" required value="Example address, Auckland"><div id="address-popover" class="address-popover" hidden><p id="address-status" class="address-status" role="status"></p><ul id="address-options" role="listbox" aria-label="Official Auckland addresses"></ul></div></div>
+          <div class="field"><label for="expected-price">Expected purchase price</label><div class="currency-field"><span aria-hidden="true">NZ$</span><input id="expected-price" name="price" inputmode="decimal" required value="920,000" aria-describedby="entry-error"></div></div>
+          <p id="entry-error" class="form-error" role="alert" hidden></p>
+          <button class="primary entry-cta" id="entry-submit" type="submit">View decision <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+        </form>
+        <p class="demo-note">Demo property and price.</p>
+      </div>
+    </section>
+    <section id="decision-page" class="decision-page" hidden>
+      <div class="property-context"><div class="property-identity"><p id="current-address"></p><button id="listing-status" class="listing-status" aria-label="Inspect listing availability" hidden></button></div><button class="price-context" id="open-price" aria-label="Change expected purchase price"><span>Expected price</span><strong id="current-price"></strong></button></div>
+      <div class="metric-grid">
+        <section class="metric-panel support-panel" aria-labelledby="support-heading">
+          <div class="metric-heading"><h1 id="support-heading">Purchase support</h1><button id="support-status" class="status-pill" aria-label="Explain purchase support status" aria-live="polite">Provisional</button></div>
+          <div class="metric-value" id="support-value" aria-live="polite" aria-atomic="true">—</div>
+          <p class="breakdown-caption">Analysis share</p>
+          <div id="share-track" class="share-track" role="img" aria-label="Analysis shares"></div>
+          <div id="share-rows" class="area-list"></div>
+        </section>
+        <section class="metric-panel evidence-panel" aria-labelledby="evidence-heading">
+          <div class="metric-heading"><h2 id="evidence-heading">Evidence completeness</h2></div>
+          <div class="metric-value" id="completeness-value" aria-live="polite" aria-atomic="true">—</div>
+          <div id="completeness-track" class="overall-track" role="progressbar" aria-label="Evidence completeness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+          <p id="coverage-caption" class="coverage-caption" aria-live="polite">Coverage by area</p>
+          <div id="coverage-rows" class="area-list"></div>
+        </section>
+      </div>
+      <div class="conversation-entry-wrap">
+        <div class="conversation-entry">
+          <button class="icon-button attachment-button" id="attach-main" aria-label="Upload a PDF, TXT or Markdown document"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9a2 2 0 0 1 3 3L6 15a1 1 0 0 0 2 2l8-8"/></svg></button>
+          <button class="conversation-placeholder" id="open-chat">Share a need, concern or viewing note…</button>
+          <button class="send-circle" id="open-chat-arrow" aria-label="Open your conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 4 14 8-14 8 3-8-3-8Zm3 8h11"/></svg></button>
+        </div>
+        <p class="conversation-caption">Priorities update automatically from your conversation.</p>
+      </div>
+    </section>
+  </main>
+  <p id="app-error" class="toast" role="alert" hidden></p>
+  <input id="document-file" type="file" accept=".pdf,.txt,.md" hidden>
+
+  <dialog id="chat-dialog" class="chat-dialog" aria-labelledby="chat-heading">
+    <div class="chat-header"><div><h2 id="chat-heading">Your conversation</h2><p>Your needs shape this decision.</p></div><button class="icon-button" data-close="chat-dialog" aria-label="Close conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div id="chat-messages" class="chat-messages" aria-live="polite" aria-relevant="additions"></div>
+    <div id="chat-suggestions" class="chat-suggestions"><button data-suggestion="Commute is my top priority.">Commute matters most</button><button data-suggestion="I loved the natural light at the viewing.">Share a viewing impression</button><button data-suggestion="My maximum purchase budget is NZ$900,000.">Add a budget limit</button></div>
+    <p id="chat-error" class="form-error chat-error" role="alert" hidden></p>
+    <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-text">Your message</label><textarea id="chat-text" rows="3" maxlength="20000" placeholder="Tell us about your needs, concerns or a viewing…"></textarea><div class="chat-actions"><button class="text-button" id="attach-chat" type="button">Attach a document</button><button class="primary" id="chat-send" type="submit">Send <span aria-hidden="true">↗</span></button></div></form>
+  </dialog>
+
+  <dialog id="detail-dialog" class="detail-dialog" aria-labelledby="detail-heading"><div class="dialog-top"><h2 id="detail-heading"></h2><button class="icon-button" data-close="detail-dialog" aria-label="Close details">×</button></div><div id="detail-content"></div></dialog>
+  <dialog id="about-dialog" class="detail-dialog" aria-labelledby="about-heading"><div class="dialog-top"><h2 id="about-heading">About this preview</h2><button class="icon-button" data-close="about-dialog" aria-label="Close preview information">×</button></div><p id="about-app">This is a local, interactive MVP. “Example address, Auckland” uses synthetic information. Real addresses trigger LINZ, Council flood and dated Council rating valuation checks, followed by six source-bound AI analysis roles. Open a category or purchase support status for results.</p><p>Purchase support is a decision score, not a success probability. Council CV is a dated rating valuation, not a current market estimate or recorded sale. Missing comparable sales, building, legal and finance evidence keeps support unavailable; AI cannot invent the missing utilities.</p><p id="about-data">Only address and geometry go to public data providers. Relevant source excerpts, expected price and your notes are sent to OpenAI through the locally signed-in Codex CLI; this uses your existing Codex quota. Raw files are not uploaded. The named demo makes no model calls. Saved projects expire after 30 days.</p><h3>Your saved projects</h3><div id="saved-projects"></div><button id="request-delete" class="danger-button" hidden>Delete this project</button></dialog>
+  <dialog id="price-dialog" class="detail-dialog" aria-labelledby="price-heading"><div class="dialog-top"><h2 id="price-heading">Expected purchase price</h2><button class="icon-button" data-close="price-dialog" aria-label="Cancel price change">×</button></div><form id="price-form" novalidate><label class="sr-only" for="new-price">Expected purchase price in NZ dollars</label><div class="currency-field"><span aria-hidden="true">NZ$</span><input id="new-price" inputmode="decimal" required></div><p id="price-error" class="form-error" role="alert" hidden></p><p>Your purchase budget, if supplied, stays separate.</p><button class="primary" id="price-save" type="submit">Update decision</button></form></dialog>
+  <dialog id="delete-dialog" class="detail-dialog" aria-labelledby="delete-heading"><h2 id="delete-heading">Delete this project?</h2><p id="delete-explanation">This removes its notes, documents and calculations from this local app.</p><div class="dialog-actions"><button class="text-button" data-close="delete-dialog">Keep project</button><button class="danger-button" id="confirm-delete">Delete project</button></div></dialog>
+</body>
+</html>
