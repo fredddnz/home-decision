@@ -9,3 +9,5 @@ This repository contains only the public frontend. The Cloudflare backend keeps 
 Purchase support is a provisional weighted utility, not a probability of investment success or professional clearance. Evidence completeness measures collected checklist items. Open the existing metric and area details to inspect sources, assumptions and missing information.
 
 See THIRD_PARTY_NOTICES.md for bundled asset notices.
+
+Release 0.15 adds native Bayesian structural/moisture follow-up scenarios from eligible report and firsthand viewing evidence. Existing read-only details disclose the prior, likelihood ratio, selected/excluded evidence and sensitivity. Parameters are uncalibrated engineering assumptions, not measured defect probabilities. Repeated evidence is treated as correlated; material review holds still override purchase support. The main English interface is unchanged.

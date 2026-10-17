@@ -1,6 +1,7 @@
 import { API_ORIGIN } from './deployment-config.mjs';
 import { createAPIClient } from './api-client.mjs';
 import { ahpFailureExplanation } from './ahp-diagnostics.mjs';
+import {riskExplanation,riskProbabilityLabel} from './risk-diagnostics.mjs';
 const apiFetch = createAPIClient({ apiOrigin: API_ORIGIN });
 const dataNotice = API_ORIGIN
   ? 'Only the address and geometry go to public property data providers. Your project, conversation and extracted document text are stored in Cloudflare D1 for up to 30 days. Relevant excerpts are processed by Cloudflare Workers AI for the six analysis roles, subject to the free daily allowance. Raw PDFs are read in your browser; scanned PDF OCR is unavailable in this online preview. Projects are private to this browser session; opening the website on another device starts a separate session.'
@@ -376,12 +377,24 @@ function agentDetails(content,area=null) {
   const button=node('button','text-button','Run analysis again'); button.disabled=analysisStarting || researching || busy || !project.research?.identity;
   button.addEventListener('click',()=>{void runAnalysis();}); content.append(button);
 }
+function bayesianDetails(content,model){
+  if(!model)return;
+  content.append(node('h3','','Bayesian risk scenarios'),node('p','',model.parameters.calibration),node('p','',model.parameters.dependence));
+  for(const risk of model.risks){
+    content.append(node('h4','',risk.label),node('p','',`Hypothesis being modelled: ${risk.hypothesis}`),node('p','',riskExplanation(risk)));
+    if(risk.selected){const evidence=risk.selected;content.append(node('p','source-status',`Selected ${evidence.kind==='document'?'supplied report finding':'firsthand viewing note'}: ${project.sources.find(s=>s.id===evidence.sourceId)?.label??evidence.sourceId}${evidence.page==null?'':`, page ${evidence.page}`}${evidence.reportDate?`, report date ${evidence.reportDate}`:evidence.observedDate?`, stated viewing date ${evidence.observedDate}`:`, viewing date not supplied; recorded ${evidence.recordedDay}`}. Expected condition utility ${risk.expectedUtility.toFixed(2)}/100 = 80 × (1 − posterior) + 20 × posterior.`),node('blockquote','',evidence.quote));}
+    if(risk.excluded.length)content.append(node('p','',`${risk.excluded.length} other finding(s) were not multiplied into this condition's odds.`));
+    if(risk.excluded.length>8)content.append(node('p','source-status',`Showing the latest 8 of ${risk.excluded.length} excluded observations. The full calculation retains every exclusion.`));
+    for(const evidence of risk.excluded.slice(-8))content.append(node('p','source-status',`${project.sources.find(s=>s.id===evidence.sourceId)?.label??evidence.sourceId}: ${evidence.reason.replaceAll('_',' ')}${evidence.page==null?'':`, page ${evidence.page}`}.`),node('blockquote','',evidence.quote));
+  }
+  content.append(node('p','','No validated Auckland base-rate or inspection-accuracy dataset is attached to this model. Title, insurance and statutory hazards remain separate review constraints. A lower conditional scenario cannot clear a material-risk hold.'));
+}
 function calculationDetails(content, area) {
   const calculation = area.calculation;
   if (!calculation) return;
   content.append(node('h3', '', 'How this area is calculated'));
   content.append(node('p', '', calculation.basis), node('p', '', `Rule: ${calculation.formula}`));
-  if (area.id==='property') content.append(node('p','','Reported roof grade: good 90, fair 60, poor 20. Structural and moisture findings: no reported indication 80, concerns 20. These are disclosed utility assumptions, not defect probabilities or professional clearance.'));
+  if (area.id==='property') {content.append(node('p','','Reported roof grade: good 90, fair 60, poor 20. Structural and moisture utility = 80 × (1 − modelled posterior) + 20 × modelled posterior. The mean uses midpoint 50 and 0–100 bounds for unknown components. These are disclosed product assumptions.'));bayesianDetails(content,calculation.risk);}
   if (calculation.missing.length) content.append(node('p', '', `Inputs still needed: ${calculation.missing.join('; ')}.`));
   for (const input of calculation.inputs) {
     const value = input.valid===false ? 'Needs clarification' : input.key.endsWith('_cents') ? `NZ$ ${money(input.value)}` : input.key.endsWith('_percent') ? `${input.value}%` : input.key.endsWith('_minutes') ? `${input.value} minutes` : input.key.endsWith('_years') ? `${input.value} years` : String(input.value).replaceAll('_', ' ');
@@ -389,7 +402,7 @@ function calculationDetails(content, area) {
     if(input.context)content.append(node('p','source-status',`Answer to: ${input.context.question} The short answer is interpreted in that question’s context.${input.key.includes('_monthly_')?' Stated weekly, fortnightly or annual amounts are converted to monthly averages.':''}`));
   }
   const c = calculation.calculations;
-  if(c?.components){
+  if(['lifestyle','location'].includes(area.id)&&c?.components){
     content.append(node('h3','','Personal fit by requirement'));
     content.append(node('p','','Only explicitly requested criteria are active. Each active criterion has an equal share within this area. Missing or unresolved inputs keep their place in the calculation with provisional midpoint 50 and bounds 0–100; they are not confirmed property features.'));
     for(const component of c.components){
@@ -493,7 +506,7 @@ function supportDetails() {
   content.append(node('p', '', project.decision.model?.aggregation ?? 'The score uses a weighted sum of the six example area utilities. Analysis shares total 100%.'));
   if(project.decision.methods){
     content.append(node('p','',`Weighting method: ${project.decision.methods.weighting.description}`));
-    content.append(node('p','',`Uncertainty method: ${project.decision.methods.uncertainty.description} Bayesian updating and Monte Carlo simulation have not been implemented.`));
+    content.append(node('p','',`Uncertainty method: ${project.decision.methods.uncertainty.description}`));
   }
   if(project.decision.model?.partial){
     const range=project.decision.model.supportRange;
@@ -503,6 +516,7 @@ function supportDetails() {
   content.append(node('p', '', `Rule version: ${project.decision.rulesVersion}. Priorities follow your conversation and source-linked analysis. Public records do not establish a current market value, building clearance or mortgage approval.`));
   if (project.calculationRulesChanged) content.append(node('p','','This saved project is recalculated with the current evidence and weighting rules. Internal weights use unrounded values and source-linked priority statements. Your saved notes, reports and earlier percentage history are retained.'));
   if (project.decision.model) {
+    bayesianDetails(content,project.decision.model.risk);
     content.append(node('h3', '', 'Calculation inputs'));
     for (const area of project.decision.areas) if (area.calculation.missing.length) content.append(node('p', '', `${area.label} — still needed: ${area.calculation.missing.join('; ')}.`));
     if (!project.research?.identity || !project.decision.areas.find(a=>a.id==='location').covered.includes('address_match')) content.append(node('p', '', 'A current exact address check is still needed.'));
@@ -520,7 +534,7 @@ function supportDetails() {
   content.append(node('h3', '', 'Recent changes'));
   for (const change of project.history.slice(-6).reverse()) {
     content.append(node('p', '', `${dateLabel(change.at)} — ${change.explanation} Support: ${change.support ?? 'unavailable'}; completeness: ${change.completeness}%.`));
-    for (const area of change.changedAreas ?? []) content.append(node('p', 'source-status', `${area.label}: share ${area.shareBefore}% → ${area.shareAfter}%; utility ${area.utilityBefore == null ? 'unavailable' : area.utilityBefore.toFixed(1)} → ${area.utilityAfter == null ? 'unavailable' : area.utilityAfter.toFixed(1)}; coverage ${area.coverageBefore}% → ${area.coverageAfter}%.`));
+    for (const area of change.changedAreas ?? []) {content.append(node('p', 'source-status', `${area.label}: share ${area.shareBefore}% → ${area.shareAfter}%; utility ${area.utilityBefore == null ? 'unavailable' : area.utilityBefore.toFixed(1)} → ${area.utilityAfter == null ? 'unavailable' : area.utilityAfter.toFixed(1)}; coverage ${area.coverageBefore}% → ${area.coverageAfter}%.`));for(const risk of area.riskChanges??[])content.append(node('p','source-status',`${risk.label}: conditional scenario ${riskProbabilityLabel(risk.before)} → ${riskProbabilityLabel(risk.after)} under uncalibrated assumptions.`));}
   }
   openDialog('detail-dialog');
 }
