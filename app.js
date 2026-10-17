@@ -1,10 +1,10 @@
-import { API_ORIGIN } from './deployment-config.mjs';
-import { createAPIClient } from './api-client.mjs';
-import { ahpFailureExplanation } from './ahp-diagnostics.mjs';
-import {riskExplanation,riskProbabilityLabel} from './risk-diagnostics.mjs';
-import {monteCarloExplanation} from './monte-carlo-diagnostics.mjs';
-import {inspectPDFPages} from './pdf-pages.mjs';
-import {createScannedPDFSubmitter} from './pdf-upload.mjs';
+import { API_ORIGIN } from './deployment-config.mjs?v=0.17.0';
+import { createAPIClient } from './api-client.mjs?v=0.17.0';
+import { ahpFailureExplanation } from './ahp-diagnostics.mjs?v=0.17.0';
+import {riskExplanation,riskProbabilityLabel} from './risk-diagnostics.mjs?v=0.17.0';
+import {monteCarloExplanation} from './monte-carlo-diagnostics.mjs?v=0.17.0';
+import {inspectPDFPages} from './pdf-pages.mjs?v=0.17.0';
+import {createScannedPDFSubmitter} from './pdf-upload.mjs?v=0.17.0';
 const apiFetch = createAPIClient({ apiOrigin: API_ORIGIN });
 const uploadLocalPDF = createScannedPDFSubmitter({apiOrigin:API_ORIGIN,fetchImpl:apiFetch});
 const dataNotice = API_ORIGIN
@@ -629,15 +629,15 @@ $('document-file').addEventListener('change', async event => {
     let text;
     if (/\.pdf$/i.test(file.name)) {
       $('chat-send').textContent = 'Reading PDF…';
-      const pdfjs = await import('./vendor/pdf.mjs');
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.mjs', import.meta.url).href;
+      const pdfjs = await import('./vendor/pdf.mjs?v=0.17.0');
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.mjs?v=0.17.0', import.meta.url).href;
       const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false });
       let pdf;
       try {
         pdf = await task.promise;
         if (pdf.numPages > 100) throw new Error('Please upload the relevant pages, up to 100 pages at a time.');
         const pages = await inspectPDFPages(pdf,{ops:pdfjs.OPS});
-        const {pdfReadingPlan}=await import('./document-text.mjs');
+        const {pdfReadingPlan}=await import('./document-text.mjs?v=0.17.0');
         const plan=pdfReadingPlan(pages);
         if(plan.method==='ocr_fallback'){await submitScannedPDF(file,project.id,plan);return;}
         text = plan.text;
